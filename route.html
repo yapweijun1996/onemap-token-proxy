@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>OneMap Routing Demo (Leaflet + OSM, Light, AutoRun)</title>
+
+    <!-- Leaflet (open-source map) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <style>
+        :root {
+            /* Light theme */
+            --bg: #F5F5F7;
+            --panel: #FFFFFF;
+            --text: #0B0C10;
+            --muted: #667085;
+            --line: #E4E7EC;
+            --shadow: 0 10px 30px rgba(16, 24, 40, .06);
+
+            --good: #12B76A;
+            --bad: #F04438;
+            --warn: #F79009;
+
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 18px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+        }
+
+        .title {
+            font-weight: 700;
+            letter-spacing: .2px;
+        }
+
+        .pill {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 14px;
+        }
+
+        @media (max-width: 980px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .card h2 {
+            margin: 0;
+            padding: 12px 14px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(245, 245, 247, .6), rgba(255, 255, 255, 0));
+        }
+
+        .card .body {
+            padding: 14px;
+            display: grid;
+            gap: 10px;
+        }
+
+        label {
+            font-size: 12px;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            box-sizing: border-box;
+            background: #FFFFFF;
+            border: 1px solid var(--line);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 10px 12px;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #2563EB;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, .12);
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        @media (max-width: 680px) {
+            .row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        button {
+            background: #FFFFFF;
+            color: var(--text);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button:hover {
+            border-color: #2563EB;
+        }
+
+        button.primary {
+            background: #2563EB;
+            border-color: #2563EB;
+            color: #FFFFFF;
+        }
+
+        .status {
+            font-family: var(--mono);
+            font-size: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: #FFFFFF;
+            color: var(--muted);
+            white-space: pre-wrap;
+        }
+
+        .status.good {
+            color: var(--good);
+        }
+
+        .status.bad {
+            color: var(--bad);
+        }
+
+        .status.warn {
+            color: var(--warn);
+        }
+
+        #map {
+            width: 100%;
+            height: 620px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .kv {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 8px 10px;
+            font-size: 13px;
+        }
+
+        .k {
+            color: var(--muted);
+        }
+
+        .v {
+            font-family: var(--mono);
+        }
+
+        .list {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            overflow: hidden;
+            background: #FFFFFF;
+        }
+
+        .item {
+            padding: 10px 12px;
+            border-top: 1px solid var(--line);
+            display: grid;
+            gap: 6px;
+        }
+
+        .item:first-child {
+            border-top: none;
+        }
+
+        .item .meta {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .item .text {
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="topbar">
+            <div class="title">OneMap Routing <span class="pill">Token Proxy → Search → Routing → Leaflet/OSM</span>
+            </div>
+            <div class="pill" id="clock"></div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>Map (OpenStreetMap)</h2>
+                <div class="body">
+                    <div id="map"></div>
+                    <div class="small" id="mapInfo">OSM tiles are loaded from public servers. Keep requests reasonable.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Controls</h2>
+                <div class="body">
+                    <div class="row">
+                        <div>
+                            <label>Start</label>
+                            <input id="start" value="Novena MRT" placeholder="e.g. 339511 or 'Novena MRT'" />
+                        </div>
+                        <div>
+                            <label>End</label>
+                            <input id="end" value="Marina Bay Sands" placeholder="e.g. 018956 or 'Marina Bay Sands'" />
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div>
+                            <label>Route Type</label>
+                            <select id="routeType">
+                                <option value="drive">drive</option>
+                                <option value="walk">walk</option>
+                                <option value="cycle">cycle</option>
+                                <option value="pt">pt</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>PT Date / Time (optional)</label>
+                            <div class="row">
+                                <input id="ptDate" placeholder="YYYY-MM-DD" />
+                                <input id="ptTime" placeholder="HH:MM" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="actions">
+                        <button class="primary" id="btnRun">Run</button>
+                        <button id="btnSwap">Swap</button>
+                        <button id="btnSample">Sample</button>
+                        <button id="btnClear">Clear</button>
+                    </div>
+
+                    <div class="status" id="status">Auto-run on load.</div>
+
+                    <div class="card" style="box-shadow:none;">
+                        <h2>Summary</h2>
+                        <div class="body">
+                            <div class="kv" id="summary">
+                                <div class="k">Start</div>
+                                <div class="v">-</div>
+                                <div class="k">End</div>
+                                <div class="v">-</div>
+                                <div class="k">Distance</div>
+                                <div class="v">-</div>
+                                <div class="k">Time</div>
+                                <div class="v">-</div>
+                                <div class="k">Status</div>
+                                <div class="v">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="box-shadow:none;">
+                        <h2>Instructions</h2>
+                        <div class="body">
+                            <div class="list" id="instructions">
+                                <div class="item">
+                                    <div class="meta">No data yet</div>
+                                    <div class="text">Waiting for auto-run…</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="small">
+                        Token proxy: <span class="pill">onemap-token-proxy…/token</span><br />
+                        Search: <span class="pill">/api/common/elastic/search</span><br />
+                        Routing: <span class="pill">/api/public/routingsvc/route</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =======================
+           Config
+        ======================= */
+        const TOKEN_PROXY_URL = "https://onemap-token-proxy.onemap-token-proxy.workers.dev/token";
+        const SEARCH_URL = "https://www.onemap.gov.sg/api/common/elastic/search";
+        const ROUTE_URL = "https://www.onemap.gov.sg/api/public/routingsvc/route";
+
+        /* =======================
+           Helpers
+        ======================= */
+        const $ = (id) => document.getElementById(id);
+
+        function setStatus(text, level = "info") {
+            const el = $("status");
+            el.className = "status";
+            if (level === "good") el.classList.add("good");
+            if (level === "bad") el.classList.add("bad");
+            if (level === "warn") el.classList.add("warn");
+            el.textContent = text;
+        }
+
+        function fmtKm(meters) {
+            if (meters == null) return "-";
+            const km = meters / 1000;
+            return km >= 10 ? `${km.toFixed(1)} km` : `${km.toFixed(2)} km`;
+        }
+
+        function fmtMin(seconds) {
+            if (seconds == null) return "-";
+            const min = Math.round(seconds / 60);
+            if (min < 60) return `${min} min`;
+            const h = Math.floor(min / 60);
+            const m = min % 60;
+            return `${h} h ${m} min`;
+        }
+
+        function toQuery(params) {
+            const usp = new URLSearchParams();
+            Object.entries(params).forEach(([k, v]) => {
+                if (v === undefined || v === null || v === "") return;
+                usp.set(k, v);
+            });
+            return usp.toString();
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, (c) => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+            }[c]));
+        }
+
+        /* =======================
+           Token cache
+        ======================= */
+        let tokenCache = { token: null, expiresAt: 0 };
+
+        async function getToken() {
+            const now = Date.now();
+            if (tokenCache.token && tokenCache.expiresAt && now < tokenCache.expiresAt - 60_000) return tokenCache.token;
+
+            setStatus("Fetching OneMap token…", "warn");
+            const res = await fetch(TOKEN_PROXY_URL);
+            if (!res.ok) throw new Error(`Token proxy HTTP ${res.status}`);
+            const data = await res.json();
+
+            const token = data.access_token || data.token || data.accessToken || data?.data?.access_token || data?.data?.token;
+            if (!token) throw new Error("Token proxy response missing token field.");
+
+            const expirySec = data.expires_in || data.expiresIn || null;
+            const expiryTs = data.expires_at || data.expiresAt || data.expiry_timestamp || data.expiryTimestamp || null;
+
+            let expiresAt = 0;
+            if (typeof expiryTs === "number") expiresAt = expiryTs > 1e12 ? expiryTs : expiryTs * 1000;
+            else if (typeof expirySec === "number") expiresAt = now + expirySec * 1000;
+            else expiresAt = now + 60 * 60 * 1000;
+
+            tokenCache = { token, expiresAt };
+            return token;
+        }
+
+        /* =======================
+           Geocode cache (reduce traffic)
+        ======================= */
+        const geocodeCache = new Map();
+
+        async function geocode(searchVal) {
+            const key = searchVal.trim().toLowerCase();
+            if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+            const token = await getToken();
+            const url = `${SEARCH_URL}?${toQuery({
+                searchVal,
+                returnGeom: "Y",
+                getAddrDetails: "Y",
+                pageNum: 1
+            })}`;
+
+            const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
+            if (!res.ok) throw new Error(`Search HTTP ${res.status}`);
+            const data = await res.json();
+
+            if (!data?.results?.length) throw new Error(`No geocode result for: ${searchVal}`);
+            const r = data.results[0];
+
+            const lat = Number(r.LATITUDE);
+            const lng = Number(r.LONGITUDE);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("Geocode missing LAT/LNG.");
+
+            const label = r.ADDRESS || r.SEARCHVAL || searchVal;
+            const out = { lat, lng, label, raw: r };
+            geocodeCache.set(key, out);
+            return out;
+        }
+
+        /* =======================
+           Routing
+        ======================= */
+        async function getRoute({ startLat, startLng, endLat, endLng, routeType, ptDate, ptTime }) {
+            const token = await getToken();
+            const params = {
+                start: `${startLat},${startLng}`,
+                end: `${endLat},${endLng}`,
+                routeType
+            };
+            if (routeType === "pt") {
+                if (ptDate) params.date = ptDate;
+                if (ptTime) params.time = ptTime;
+            }
+
+            const url = `${ROUTE_URL}?${toQuery(params)}`;
+            const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
+            if (!res.ok) throw new Error(`Routing HTTP ${res.status}`);
+            return res.json();
+        }
+
+        /* =======================
+           Polyline decode (Google-style)
+        ======================= */
+        function decodePolyline(str, precision = 5) {
+            let index = 0, lat = 0, lng = 0;
+            const coordinates = [];
+            const factor = Math.pow(10, precision);
+
+            while (index < str.length) {
+                let b, shift = 0, result = 0;
+                do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+                const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
+
+                shift = 0; result = 0;
+                do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+                const dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
+
+                lat += dlat; lng += dlng;
+                coordinates.push([lat / factor, lng / factor]);
+            }
+            return coordinates; // [ [lat,lng], ... ]
+        }
+
+        /* =======================
+           Leaflet map
+        ======================= */
+        let map, routeLine, startMarker, endMarker;
+
+        function initMap() {
+            map = L.map("map", {
+                zoomControl: true,
+                attributionControl: true
+            }).setView([1.3521, 103.8198], 12);
+
+            // OpenStreetMap tiles
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                // OSM attribution required
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        function clearMapLayers() {
+            if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+            if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+            if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
+        }
+
+        function drawOnMap(pointsLatLng, start, end) {
+            clearMapLayers();
+
+            startMarker = L.marker([start.lat, start.lng]).addTo(map).bindPopup("START").openPopup();
+            endMarker = L.marker([end.lat, end.lng]).addTo(map).bindPopup("END");
+
+            if (pointsLatLng?.length >= 2) {
+                routeLine = L.polyline(pointsLatLng, { weight: 5, opacity: 0.9 }).addTo(map);
+                const bounds = routeLine.getBounds().pad(0.12);
+                map.fitBounds(bounds);
+            } else {
+                map.setView([start.lat, start.lng], 15);
+            }
+        }
+
+        /* =======================
+           Render summary + instructions
+        ======================= */
+        function renderSummary({ startLabel, endLabel, routeJson }) {
+            const box = $("summary");
+            const rs = routeJson.route_summary || routeJson.routeSummary || {};
+            const dist = rs.total_distance ?? rs.totalDistance ?? routeJson.totalDistance ?? null;
+            const time = rs.total_time ?? rs.totalTime ?? routeJson.totalTime ?? null;
+            const status = (routeJson.status_message || routeJson.statusMessage || "") + ` (status=${routeJson.status})`;
+
+            box.innerHTML = `
+    <div class="k">Start</div><div class="v">${escapeHtml(startLabel)}</div>
+    <div class="k">End</div><div class="v">${escapeHtml(endLabel)}</div>
+    <div class="k">Distance</div><div class="v">${fmtKm(dist)}</div>
+    <div class="k">Time</div><div class="v">${fmtMin(time)}</div>
+    <div class="k">Status</div><div class="v">${escapeHtml(status || "-")}</div>
+  `;
+        }
+
+        function renderInstructions(routeJson) {
+            const el = $("instructions");
+            const arr = routeJson.route_instructions || routeJson.routeInstructions || [];
+
+            if (!arr?.length) {
+                el.innerHTML = `<div class="item"><div class="meta">No instructions</div><div class="text">API did not return route_instructions.</div></div>`;
+                return;
+            }
+
+            el.innerHTML = arr.map((step, idx) => {
+                const isArray = Array.isArray(step);
+                const text = isArray ? (step[9] || step[8] || step[0] || JSON.stringify(step))
+                    : (step.instruction || step.text || JSON.stringify(step));
+                const street = isArray ? (step[1] ?? "-") : (step.street ?? "-");
+                const dist = isArray ? (step[5] ?? "-") : (step.distance ?? "-");
+                const dur = isArray ? (step[2] ?? "-") : (step.duration ?? "-");
+
+                return `
+      <div class="item">
+        <div class="meta">#${idx + 1} · street=${escapeHtml(String(street))} · dist=${escapeHtml(String(dist))} · dur=${escapeHtml(String(dur))}</div>
+        <div class="text">${escapeHtml(String(text))}</div>
+      </div>
+    `;
+            }).join("");
+        }
+
+        /* =======================
+           Main flow
+        ======================= */
+        async function run() {
+            const startVal = $("start").value.trim();
+            const endVal = $("end").value.trim();
+            const routeType = $("routeType").value;
+            const ptDate = $("ptDate").value.trim();
+            const ptTime = $("ptTime").value.trim();
+
+            if (!startVal || !endVal) {
+                setStatus("Start/End empty → skip.", "warn");
+                return;
+            }
+
+            try {
+                setStatus("Geocoding start…", "warn");
+                const g1 = await geocode(startVal);
+
+                setStatus("Geocoding end…", "warn");
+                const g2 = await geocode(endVal);
+
+                setStatus("Routing…", "warn");
+                const routeJson = await getRoute({
+                    startLat: g1.lat, startLng: g1.lng,
+                    endLat: g2.lat, endLng: g2.lng,
+                    routeType, ptDate, ptTime
+                });
+
+                renderSummary({ startLabel: g1.label, endLabel: g2.label, routeJson });
+                renderInstructions(routeJson);
+
+                const geom = routeJson.route_geometry || routeJson.routeGeometry || "";
+                let points = [];
+                if (geom) {
+                    try { points = decodePolyline(geom, 5); }
+                    catch { points = decodePolyline(geom, 6); }
+                }
+
+                // Leaflet wants [lat,lng]
+                const pointsLatLng = points.map(([lat, lng]) => [lat, lng]);
+                drawOnMap(pointsLatLng, { lat: g1.lat, lng: g1.lng }, { lat: g2.lat, lng: g2.lng });
+
+                setStatus("Done.", "good");
+            } catch (err) {
+                console.error(err);
+                setStatus(`Error:\n${err.message || String(err)}`, "bad");
+            }
+        }
+
+        /* =======================
+           UI wiring
+        ======================= */
+        $("btnRun").addEventListener("click", run);
+
+        $("btnSwap").addEventListener("click", () => {
+            const a = $("start").value;
+            $("start").value = $("end").value;
+            $("end").value = a;
+        });
+
+        $("btnSample").addEventListener("click", () => {
+            $("start").value = "339511";
+            $("end").value = "018956";
+            $("routeType").value = "drive";
+        });
+
+        $("btnClear").addEventListener("click", () => {
+            clearMapLayers();
+            $("instructions").innerHTML = `
+    <div class="item"><div class="meta">Cleared</div><div class="text">Run again to redraw route.</div></div>
+  `;
+            $("summary").innerHTML = `
+    <div class="k">Start</div><div class="v">-</div>
+    <div class="k">End</div><div class="v">-</div>
+    <div class="k">Distance</div><div class="v">-</div>
+    <div class="k">Time</div><div class="v">-</div>
+    <div class="k">Status</div><div class="v">-</div>
+  `;
+            setStatus("Cleared.", "warn");
+        });
+
+        /* =======================
+           Auto run on load
+        ======================= */
+        window.addEventListener("DOMContentLoaded", async () => {
+            // clock
+            setInterval(() => { $("clock").textContent = new Date().toLocaleString(); }, 500);
+            $("clock").textContent = new Date().toLocaleString();
+
+            initMap();
+
+            // warm token (optional)
+            try { await getToken(); } catch { }
+
+            // auto-run once
+            await run();
+        });
+    </script>
+</body>
+
+</html>
