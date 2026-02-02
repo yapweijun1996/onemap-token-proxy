@@ -1,0 +1,8 @@
+{
+    "name": "onemap-token-proxy",
+    "main": "src/index.js",
+    "compatibility_date": "2024-02-02",
+    "observability": {
+        "enabled": true
+    }
+}
