@@ -55,15 +55,21 @@ npm run deploy
 
 ## 🛠️ Usage Guide
 
-Once deployed, you will receive a URL like `https://onemap-token-proxy.<your-subdomain>.workers.dev`.
+> [!IMPORTANT]
+> The examples below use a live demo URL: `https://onemap-token-proxy.onemap-token-proxy.workers.dev`.
+> **If you are deploying your own instance, please replace this with your own `workers.dev` URL** (e.g., `https://onemap-auth.john-doe.workers.dev`).
 
 ### Endpoint: Fetch Token
 **Request:**
-- **Method**: `POST`
+- **Method**: `GET` or `POST`
 - **URL**: `/token`
 
 **Example (cURL):**
 ```bash
+# Using GET (Simplest)
+curl "https://onemap-token-proxy.onemap-token-proxy.workers.dev/token"
+
+# Using POST
 curl -X POST "https://onemap-token-proxy.onemap-token-proxy.workers.dev/token"
 ```
 

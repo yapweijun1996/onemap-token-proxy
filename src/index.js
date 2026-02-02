@@ -25,8 +25,8 @@ export default {
         }
 
         try {
-            // POST /token - Get a new token from OneMap using Secrets
-            if (url.pathname === "/token" && request.method === "POST") {
+            // GET or POST /token - Get a new token from OneMap using Secrets
+            if (url.pathname === "/token" && (request.method === "POST" || request.method === "GET")) {
                 const { ONEMAP_EMAIL, ONEMAP_PASSWORD } = env;
 
                 if (!ONEMAP_EMAIL || !ONEMAP_PASSWORD) {
