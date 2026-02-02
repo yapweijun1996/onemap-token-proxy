@@ -4,5 +4,11 @@
     "compatibility_date": "2024-02-02",
     "observability": {
         "enabled": true
-    }
+    },
+    "kv_namespaces": [
+        {
+            "binding": "ONEMAP_CACHE",
+            "id": "3e7aabeaac8443c192bce4c4ac7b9fcd"
+        }
+    ]
 }

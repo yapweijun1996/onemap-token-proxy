@@ -5,7 +5,8 @@ A lightweight, secure API proxy built on Cloudflare Workers to handle OneMap aut
 ## ✨ Features
 
 - **Server-Side Auth**: Securely stores OneMap credentials using Cloudflare Workers Secrets.
-- **Token Proxy**: Simple `POST` endpoint to get fresh tokens.
+- **Token Proxy**: Simple `GET` or `POST` endpoint to get fresh tokens.
+- **KV Caching**: High-speed token reuse powered by Cloudflare KV.
 - **Token Status**: `GET` endpoint to check token validity and remaining time.
 - **Zero Cost**: Runs entirely within the Cloudflare Workers Free Tier.
 - **CORS Enabled**: Ready to be consumed by any frontend application.
@@ -45,8 +46,23 @@ npx wrangler secret put ONEMAP_EMAIL
 npx wrangler secret put ONEMAP_PASSWORD
 ```
 
-### 5. Deployment
-Publish your worker to the `workers.dev` subdomain:
+### 5. Create KV Namespace (NEW)
+Create a KV namespace to enable caching:
+```bash
+npx wrangler kv:namespace create ONEMAP_CACHE
+```
+Copy the generated ID and add to your `wrangler.jsonc`:
+```json
+"kv_namespaces": [
+  {
+    "binding": "ONEMAP_CACHE",
+    "id": "YOUR_KV_ID"
+  }
+]
+```
+
+### 6. Deployment
+Publish your worker:
 ```bash
 npm run deploy
 ```
@@ -76,9 +92,11 @@ curl -X POST "https://onemap-token-proxy.onemap-token-proxy.workers.dev/token"
 **Response:**
 ```json
 {
-  "access_token": "eyJhbGciOiJSUzI1Ni..."
+  "access_token": "eyJhbGciOiJSUzI1Ni...",
+  "source": "cache" 
 }
 ```
+*(Note: `source` will be `"onemap"` for fresh tokens or `"cache"` for reused tokens)*
 
 ### Endpoint: Check Token Status
 **Request:**
