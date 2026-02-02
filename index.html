@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OneMap Address Search (Token Proxy)</title>
+    <style>
+        :root {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        }
+
+        body {
+            margin: 24px;
+            background: #f6f7f9;
+            color: #111;
+        }
+
+        .card {
+            max-width: 920px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
+        }
+
+        h1 {
+            font-size: 18px;
+            margin: 0 0 12px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 1 1 360px;
+            padding: 10px 12px;
+            border: 1px solid #d0d5dd;
+            border-radius: 10px;
+            outline: none;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        button {
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            background: #111;
+            color: #fff;
+        }
+
+        button:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        .meta {
+            font-size: 12px;
+            color: #475467;
+            margin-top: 10px;
+        }
+
+        .error {
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: #fff2f2;
+            border: 1px solid #ffd0d0;
+            border-radius: 10px;
+            color: #8a1f1f;
+            display: none;
+            white-space: pre-wrap;
+        }
+
+        .list {
+            margin-top: 14px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .item {
+            border: 1px solid #e4e7ec;
+            border-radius: 12px;
+            padding: 12px;
+            background: #fff;
+        }
+
+        .addr {
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .kv {
+            font-size: 12px;
+            color: #344054;
+            line-height: 1.5;
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1>OneMap Address Search (via Token Proxy)</h1>
+
+        <div class="row">
+            <input id="q" type="text" placeholder="Enter postcode or address keyword (e.g., 339511 / APERIA)" />
+            <button id="btn">Search</button>
+        </div>
+
+        <div class="meta">
+            Token source: <code>https://onemap-token-proxy.onemap-token-proxy.workers.dev/token</code><br />
+            Search API: <code>https://www.onemap.gov.sg/api/common/elastic/search</code>
+        </div>
+
+        <div id="err" class="error"></div>
+        <div id="list" class="list"></div>
+    </div>
+
+    <script>
+        // ------------------------------------------------------------
+        // Config
+        // ------------------------------------------------------------
+        const TOKEN_PROXY_URL = "https://onemap-token-proxy.onemap-token-proxy.workers.dev/token";
+        const SEARCH_URL = "https://www.onemap.gov.sg/api/common/elastic/search";
+
+        // In-memory token cache (simple + effective for demo)
+        let cachedToken = null;
+
+        const $q = document.getElementById("q");
+        const $btn = document.getElementById("btn");
+        const $err = document.getElementById("err");
+        const $list = document.getElementById("list");
+
+        function showError(msg) {
+            if (!msg) { $err.style.display = "none"; $err.textContent = ""; return; }
+            $err.style.display = "block";
+            $err.textContent = msg;
+        }
+
+        function setLoading(isLoading) {
+            $btn.disabled = isLoading;
+            $btn.textContent = isLoading ? "Searching..." : "Search";
+        }
+
+        async function getTokenFresh() {
+            // Always fetch a fresh token from proxy
+            const res = await fetch(TOKEN_PROXY_URL, { method: "GET" });
+            if (!res.ok) {
+                throw new Error(`Token proxy HTTP ${res.status}: ${await res.text()}`);
+            }
+            const data = await res.json();
+            if (!data || !data.access_token) {
+                throw new Error(`Token proxy response missing access_token: ${JSON.stringify(data)}`);
+            }
+            cachedToken = data.access_token;
+            return cachedToken;
+        }
+
+        async function getTokenBestEffort() {
+            // Prefer cached token, fallback to fresh
+            if (cachedToken) return cachedToken;
+            return await getTokenFresh();
+        }
+
+        async function searchOneMap(searchVal) {
+            const token = await getTokenBestEffort();
+
+            const url = new URL(SEARCH_URL);
+            url.searchParams.set("searchVal", searchVal);
+            url.searchParams.set("returnGeom", "Y");
+            url.searchParams.set("getAddrDetails", "Y");
+            url.searchParams.set("pageNum", "1");
+
+            const res = await fetch(url.toString(), {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+
+            // If token is missing/expired/invalid, OneMap returns an "error" field in JSON
+            // We'll handle both HTTP-level errors and JSON-level "error".
+            const text = await res.text();
+            let data = null;
+            try { data = JSON.parse(text); } catch (_) { }
+
+            if (!res.ok) {
+                // If token is bad, retry once with fresh token.
+                // This mirrors OneMap guidance: refresh token when invalid/expired.
+                cachedToken = null;
+                const retryToken = await getTokenFresh();
+
+                const retryRes = await fetch(url.toString(), {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${retryToken}` }
+                });
+                const retryText = await retryRes.text();
+                let retryData = null;
+                try { retryData = JSON.parse(retryText); } catch (_) { }
+
+                if (!retryRes.ok) {
+                    throw new Error(`OneMap HTTP ${retryRes.status}: ${retryText}`);
+                }
+                if (retryData && retryData.error) {
+                    throw new Error(`OneMap error: ${retryData.error}`);
+                }
+                return retryData;
+            }
+
+            if (data && data.error) {
+                // Token could be expired even if HTTP 200; retry once with fresh token.
+                cachedToken = null;
+                const retryToken = await getTokenFresh();
+
+                const retryRes = await fetch(url.toString(), {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${retryToken}` }
+                });
+                const retryData = await retryRes.json();
+                if (retryData && retryData.error) {
+                    throw new Error(`OneMap error: ${retryData.error}`);
+                }
+                return retryData;
+            }
+
+            // If JSON parse failed, still show raw response
+            if (!data) throw new Error(`Unexpected response (not JSON): ${text}`);
+            return data;
+        }
+
+        function renderResults(data) {
+            $list.innerHTML = "";
+
+            const results = (data && Array.isArray(data.results)) ? data.results : [];
+            if (!results.length) {
+                $list.innerHTML = `<div class="item"><div class="addr">No results</div><div class="kv">Try a different keyword/postcode.</div></div>`;
+                return;
+            }
+
+            for (const r of results) {
+                const address =
+                    r.ADDRESS ||
+                    [r.BLK_NO, r.ROAD_NAME, r.BUILDING, r.POSTAL].filter(Boolean).join(" ");
+
+                const lat = r.LATITUDE ?? r.LAT ?? "";
+                const lng = r.LONGITUDE ?? r.LNG ?? "";
+                const postal = r.POSTAL ?? "";
+                const searchVal = r.SEARCHVAL ?? "";
+
+                const div = document.createElement("div");
+                div.className = "item";
+                div.innerHTML = `
+          <div class="addr">${escapeHtml(address || "(no address field)")}</div>
+          <div class="kv">
+            <div><b>POSTAL</b>: ${escapeHtml(String(postal))}</div>
+            <div><b>SEARCHVAL</b>: ${escapeHtml(String(searchVal))}</div>
+            <div><b>LAT/LNG</b>: ${escapeHtml(String(lat))}, ${escapeHtml(String(lng))}</div>
+          </div>
+        `;
+                $list.appendChild(div);
+            }
+        }
+
+        function escapeHtml(s) {
+            return String(s)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        async function onSearch() {
+            const query = ($q.value || "").trim();
+            showError("");
+            $list.innerHTML = "";
+
+            if (!query) {
+                showError("Please enter a postcode or address keyword.");
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const data = await searchOneMap(query);
+                renderResults(data);
+            } catch (e) {
+                showError(String(e?.message || e));
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        $btn.addEventListener("click", onSearch);
+        $q.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") onSearch();
+        });
+
+        // Prefill a sample
+        $q.value = "339511";
+    </script>
+</body>
+
+</html>

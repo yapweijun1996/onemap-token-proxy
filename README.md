@@ -10,8 +10,18 @@ A lightweight, secure API proxy built on Cloudflare Workers to handle OneMap aut
 - **Token Status**: `GET` endpoint to check token validity and remaining time.
 - **Zero Cost**: Runs entirely within the Cloudflare Workers Free Tier.
 - **CORS Enabled**: Ready to be consumed by any frontend application.
+- **Interactive Demo**: Includes a ready-to-use `index.html` address search example.
 
 ---
+
+## 🎨 Interactive Demo
+
+We've included a simple [index.html](file:///c:/Users/tno/Documents/GitHub/onemap-token-proxy/index.html) file that demonstrates a real-world use case: **Address Search**.
+
+**How to use it:**
+1. Simply open [index.html](file:///c:/Users/tno/Documents/GitHub/onemap-token-proxy/index.html) in any modern web browser.
+2. It will automatically fetch a token from the proxy and allow you to search for Singapore addresses or postcodes.
+3. This serves as a perfect starting point for your own frontend integration.
 
 ## 🚀 Quick Setup (Route B - Wrangler)
 
